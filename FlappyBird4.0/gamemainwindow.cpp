@@ -18,7 +18,6 @@
 #include <QStringList>
 #include "ground.h"
 #include <QSoundEffect>
-#include "coin.h"
 
 GameMainWindow::GameMainWindow(QWidget *parent,QWidget *mainWindow) :
     QMainWindow(parent)
@@ -33,11 +32,10 @@ GameMainWindow::GameMainWindow(QWidget *parent,QWidget *mainWindow) :
     ,gameTimer(new QTimer)
     ,willRestart(false)
     ,score(0)
-    ,scoreOne(new QLabel(this))
-    ,scoreTen(new QLabel(this))
-    ,scoreHundred(new QLabel(this))
+    ,scoreOne(new Score(this))
+    ,scoreTen(new Score(this))
+    ,scoreHun(new Score(this))
     ,nums(new QStringList)
-    ,coin(new Coin(this,this))
     ,coldDownTime(0)
 {
     ui->setupUi(this);
@@ -59,23 +57,21 @@ GameMainWindow::GameMainWindow(QWidget *parent,QWidget *mainWindow) :
     pressToStart->move(245,100);
     pressToStart->show();
 
-    scoreOne->resize(24,36);
-    scoreOne->move(412,40);
-    scoreOne->show();
-    scoreTen->resize(24,36);
-    scoreTen->move(388,40);
-    scoreTen->show();
-    scoreHundred->resize(24,36);
-    scoreHundred->move(364,40);
-    scoreHundred->show();
+    scoreOne->curScorePic->resize(24,36);
+    scoreOne->curScorePic->move(412,40);
+    scoreOne->curScorePic->show();
+    scoreTen->curScorePic->resize(24,36);
+    scoreTen->curScorePic->move(388,40);
+    scoreTen->curScorePic->show();
+    scoreHun->curScorePic->resize(24,36);
+    scoreHun->curScorePic->move(364,40);
+    scoreHun->curScorePic->show();
     *nums << QString(":/res/numbers/0.png") << QString(":/res/numbers/1.png") << QString(":/res/numbers/2.png")
          << QString(":/res/numbers/3.png") << QString(":/res/numbers/4.png") << QString(":/res/numbers/5.png")
          << QString(":/res/numbers/6.png") << QString(":/res/numbers/7.png") << QString(":/res/numbers/8.png")
          << QString(":/res/numbers/9.png");
     updateScoreLabel();
 
-//    int *fps = new int(0);
-//    *fps = 0;
     gameTime = 0;
     QTimer *timer = new QTimer;
     connect(ui->actionExit, &QAction::triggered, this, [=](){
@@ -116,14 +112,13 @@ GameMainWindow::GameMainWindow(QWidget *parent,QWidget *mainWindow) :
     });
 
     connect(timer,&QTimer::timeout,this,[=](){
-//        (*fps)++;
         updateFrame();
         if(gameRunning == false) //若游戏结束，开始结束收尾
         {
             timer->stop();
             gameTimer->stop();
             bkgdMusic->stop();
-            coin->moveTimer->stop();
+            //coin->moveTimer->stop();
             pipeUp->moveTimer->stop();
             pipeUp->stepMoveTimer->stop();
             pipeUp->upAndDownMoveTimer->stop();
@@ -139,8 +134,6 @@ GameMainWindow::GameMainWindow(QWidget *parent,QWidget *mainWindow) :
     });
 
     connect(gameTimer, &QTimer::timeout ,this, [=](){
-//        qDebug() << *fps;
-//        (*fps) = 0;
         gameTime++;
         if(gameTime == 24) //游戏运行24后卡点音乐进入feverTime
         {
@@ -150,7 +143,6 @@ GameMainWindow::GameMainWindow(QWidget *parent,QWidget *mainWindow) :
         {
             feverTime(2);
         }
-//        qDebug () << QString::number(gameTime);
     });
 
 }
@@ -171,8 +163,6 @@ void GameMainWindow::initGame()
     score=0;
     pipeUp = new Pipe(0,Pipe::up,this,false);
     pipeDown = new Pipe(0,Pipe::down,this,false);
-    coin = new Coin(this,this,false);
-
     initMusic();
 
     if(gameMode == GameMainWindow::singelplayer) //单人游戏
@@ -180,14 +170,12 @@ void GameMainWindow::initGame()
         isServer = true;
         pipeUp->isActive = true;
         pipeDown->isActive = true;
-        coin->isActive = true;
         resetPipes();
         connect(pipeUp, &Pipe::resetMe, this, &GameMainWindow::resetPipes);
         connect(pipeUp, &Pipe::getScore, this, [=](){
             score++;
             scoreChanged();
         });
-        coin->initCoin();
         connect(bird1,&Bird::flyStatusChanged,bird1,&Bird::flapWing); //让鸟飞的时候扇翅膀
         bird1->birdX=400;
         bird1->birdY=400;
@@ -195,10 +183,6 @@ void GameMainWindow::initGame()
         connect(pipeUp,&Pipe::crashed,this,&GameMainWindow::crashed); //初始化碰撞检测
         connect(pipeDown,&Pipe::crashed,this,&GameMainWindow::crashed);
         connect(ground,&Ground::hitGround,this,&GameMainWindow::crashed);
-        connect(coin,&Coin::getScore,this,[=](){
-            score++;
-            scoreChanged();
-        });
     }
 
     if(gameMode == GameMainWindow::multiplayer) //多人游戏
@@ -217,8 +201,6 @@ void GameMainWindow::initGame()
             initServer();
             pipeUp->isActive = true;
             pipeDown->isActive = true;
-            coin->isActive = true;
-            coin->initCoin();
             resetPipes();
             connect(pipeUp, &Pipe::resetMe, this, &GameMainWindow::resetPipes);
             connect(pipeUp, &Pipe::getScore, this, [=](){
@@ -228,10 +210,6 @@ void GameMainWindow::initGame()
             connect(pipeUp,&Pipe::crashed,this,&GameMainWindow::crashed);
             connect(pipeDown,&Pipe::crashed,this,&GameMainWindow::crashed);
             connect(ground,&Ground::hitGround,this,&GameMainWindow::crashed);
-            connect(coin,&Coin::getScore,this,[=](){
-                score++;
-                scoreChanged();
-            });
         }
         else //2P
         {
@@ -276,7 +254,7 @@ void GameMainWindow::paintEvent(QPaintEvent *event) //从底层到顶层逐层�
     }
     else if(gameScene == GameMainWindow::night)
     {
-        backgroundPainter.drawPixmap(0,0,1800,800,QPixmap(":/res/background_night.png"));
+        backgroundPainter.drawPixmap(0,0,1800,800,QPixmap(":/res/sky.png"));
     }
     else if(gameScene == GameMainWindow::city)
     {
@@ -330,18 +308,8 @@ void GameMainWindow::paintEvent(QPaintEvent *event) //从底层到顶层逐层�
     {
         groundPainter.drawPixmap(0,0,1600,100,QPixmap(":/res/ground_city.png"));
     }
-
-    QPainter coinPainter(this);
-    coinPainter.translate(coin->x,coin->y);
-    if(!coin->eaten)
-    {
-        coinPainter.drawPixmap(0,0,12,16,QPixmap(":/res/coin.png"));
-    }
-
-
     QPainter birdPainter(this);
     birdPainter.translate(bird1->birdX,bird1->birdY);
-    //    painter.drawEllipse(QPoint(0,0),20,20);
     switch (bird1->flyStatus) { //实现鸟扇翅膀
     case 1:
         birdPainter.drawPixmap(0,0,40,40,QPixmap(":/res/bird_yellow_down.png"));
@@ -383,7 +351,6 @@ void GameMainWindow::keyPressEvent(QKeyEvent *event)
     if(coldDownTime > 0) return;
     if(event->key() == Qt::Key_Space)
     {
-//        bird1->fly();
         if(gameMode == GameMainWindow::singelplayer || isServer == true)
         {
             coldDownTime = 5;
@@ -431,7 +398,6 @@ void GameMainWindow::initServer()
         QByteArray buf = myMain->client->readAll();
         QString bufStr;
         bufStr.prepend(buf);
-//        qDebug() << bufStr;
         if(bufStr == "fly")
         {
             bird2->fly();
@@ -442,7 +408,6 @@ void GameMainWindow::initServer()
 
 void GameMainWindow::initClient()
 {
-//    qDebug() << "initclient";
     MainWindow *myMain = static_cast<MainWindow *>(mainWindow);
     //监听主机消息，接收到主机信息时进行处理并同步
     connect(myMain->socket,&QTcpSocket::readyRead,this,[=](){
@@ -478,13 +443,11 @@ void GameMainWindow::checkCrash() //每帧检测碰撞
     pipeUp->isCrashed(bird1);
     pipeDown->isCrashed(bird1);
     ground->checkHitGround(bird1);
-    if(!coin->eaten) coin->isTouched(bird1);
     if(gameMode == GameMainWindow::multiplayer)
     {
         pipeUp->isCrashed(bird2);
         pipeDown->isCrashed(bird2);
         ground->checkHitGround(bird2);
-        if(!coin->eaten) coin->isTouched(bird2);
     }
 }
 
@@ -518,8 +481,8 @@ void GameMainWindow::resetPipes() //水管撞到左边边界后重置水管
 
 void GameMainWindow::syncWithServer(QStringList data) //客户机处理主机的同步消息
 {
-    /*bird1Y-bird2Y-b1flystatus-b2flystatus-pipeUpX-pipeUpHeight-pipeDownX
-    -pipeDownY-Score-gameRunning-holePosition-difficulty-coinX-coinY-coinAeten
+    /*
+    bird1Y-bird2Y-b1flystatus-b2flystatus-pipeUpX-pipeUpHeight-pipeDownX-pipeDownY-Score-gameRunning-holePosition-difficulty
     */
     bird1->birdY=data.at(0).toInt();
     bird2->birdY=data.at(1).toInt();
@@ -543,9 +506,6 @@ void GameMainWindow::syncWithServer(QStringList data) //客户机处理主机的
     }
     pipeDown->caculatePosition(holePosition,pipeUp);
     pipeUp->caculatePosition(holePosition,pipeDown);
-    coin->x = data.at(12).toInt();
-    coin->y = data.at(13).toInt();
-    coin->eaten = (data.at(14).toInt() == 1 ? true : false);
 }
 
 void GameMainWindow::syncWithClient() //主机打包消息并向客户机发送
@@ -557,8 +517,7 @@ void GameMainWindow::syncWithClient() //主机打包消息并向客户机发送
          << QString::number(pipeUp->x) << "~" << QString::number(pipeUp->height) << "~"
          << QString::number(pipeDown->x) << "~" << QString::number(pipeDown->y) << "~"
          << QString::number(score) << "~" << (gameRunning == true ? "1" : "0") << "~"
-         << QString::number((pipeDown->y - pipeUp->height)/2 + pipeUp->height) << "~" << QString::number(difficulty) << "~"
-         << QString::number(coin->x) << "~" << QString::number(coin->y) << "~" << (coin->eaten == true ? "1" : "0");
+         << QString::number((pipeDown->y - pipeUp->height)/2 + pipeUp->height) << "~" << QString::number(difficulty);
     QString tmpstr = data.join("");
     qDebug() << tmpstr;
     QByteArray tmpbytearr = tmpstr.toLocal8Bit();
@@ -592,7 +551,6 @@ void GameMainWindow::initMusic() //初始化背景音乐
 
 void GameMainWindow::feverTime(int times) //进入feverTime，背景切换到夜晚，难度+1，并且开始水管移动
 {
-//    gameScene = night;
     if(gameMode == GameMainWindow::singelplayer || isServer)
     {
         if(times == 1)
@@ -611,12 +569,16 @@ void GameMainWindow::feverTime(int times) //进入feverTime，背景切换到夜
 
 void GameMainWindow::updateScoreLabel()
 {
-    int one = score % 10;
-    int ten = (score % 100 - one) / 10;
-    int hundred = (score - one - ten * 10) / 100;
-    scoreOne->setPixmap(QPixmap((*nums).at(one)));
-    if(score > 9) scoreTen->setPixmap(QPixmap((*nums).at(ten)));
-    if(score > 99) scoreHundred->setPixmap(QPixmap((*nums).at(hundred)));
+    scoreOne->score = score % 10;
+    scoreTen->score = (score/10)%10;
+    scoreHun->score = (score/100)%10;
+    scoreOne->curScorePic->setPixmap(QPixmap((*nums).at(scoreOne->score)));
+    if(score>9) {
+        scoreTen->curScorePic->setPixmap(QPixmap((*nums).at(scoreTen->score)));
+    }
+    if(score>99) {
+        scoreHun->curScorePic->setPixmap(QPixmap((*nums).at(scoreHun->score)));
+    }
 }
 
 void GameMainWindow::showHighestScore()
@@ -624,9 +586,9 @@ void GameMainWindow::showHighestScore()
 
     int highScore = static_cast<MainWindow *>(mainWindow)->highestScore;
     static_cast<MainWindow *>(mainWindow)->highestScore = score > highScore ? score : highScore;
-    int highScoreOne = highScore % 10;
-    int highScoreTen = (highScore % 100 - highScoreOne) / 10;
-    int highScoreHundred = (highScore - highScoreOne - highScoreTen * 10) / 100;
+    scoreOne->hisScore = highScore % 10;
+    scoreTen->hisScore = (highScore/10)%10;
+    scoreHun->hisScore = (highScore/100)%10;
 
     QLabel *highScoreLabel = new QLabel(this);
     highScoreLabel->resize(217,36);
@@ -638,23 +600,27 @@ void GameMainWindow::showHighestScore()
     QLabel *ten = new QLabel(this);
     QLabel *hundred = new QLabel(this);
 
-    one->setPixmap(QPixmap((*nums).at(highScoreOne)));
-    if(ten != 0) ten->setPixmap(QPixmap((*nums).at(highScoreTen)));
-    if(hundred != 0) hundred->setPixmap(QPixmap((*nums).at(highScoreHundred)));
+    scoreOne->hisScorePic->setPixmap(QPixmap((*nums).at(scoreOne->hisScore)));
+    if(highScore> 9) {
+        scoreTen->hisScorePic->setPixmap(QPixmap((*nums).at(scoreTen->hisScore)));
+    }
+    if(highScore> 99) {
+        scoreHun->hisScorePic->setPixmap(QPixmap((*nums).at(scoreHun->hisScore)));
+    }
 
-    one->resize(24,36);
-    one->move(412,140);
-    one->show();
-    ten->resize(24,36);
-    ten->move(388,140);
-    ten->show();
-    hundred->resize(24,36);
-    hundred->move(364,140);
-    hundred->show();
+    scoreOne->hisScorePic->resize(24,36);
+    scoreOne->hisScorePic->move(412,140);
+    scoreOne->hisScorePic->show();
+    scoreTen->hisScorePic->resize(24,36);
+    scoreTen->hisScorePic->move(388,140);
+    scoreTen->hisScorePic->show();
+    scoreHun->hisScorePic->resize(24,36);
+    scoreHun->hisScorePic->move(364,140);
+    scoreHun->hisScorePic->show();
 
-    connect(this,&GameMainWindow::closed,one,&QLabel::close);
-    connect(this,&GameMainWindow::closed,ten,&QLabel::close);
-    connect(this,&GameMainWindow::closed,hundred,&QLabel::close);
+    connect(this,&GameMainWindow::closed,scoreOne->hisScorePic,&QLabel::close);
+    connect(this,&GameMainWindow::closed,scoreTen->hisScorePic,&QLabel::close);
+    connect(this,&GameMainWindow::closed,scoreHun->hisScorePic,&QLabel::close);
 }
 
 void GameMainWindow::difficultyChanged()
@@ -662,4 +628,3 @@ void GameMainWindow::difficultyChanged()
     ground->difficulty=difficulty;
     gameScene = static_cast<GameMainWindow::gameScenes>(difficulty);
 }
-
