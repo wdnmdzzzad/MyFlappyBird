@@ -27,6 +27,7 @@ set(PROJECT_SOURCES
         ground.h ground.cpp
         startbutton.h startbutton.cpp
         coin.h coin.cpp
+        score.h score.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
